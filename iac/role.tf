@@ -32,9 +32,10 @@ resource "aws_iam_role_policy" "kvs_sts_role_policy" {
             "Sid": "VisualEditor0",
             "Effect": "Allow",
             "Action": [
-                "kinesisvideo:Describe*",
-                "kinesisvideo:Get*",
-                "kinesisvideo:List*"
+               	"kinesisvideo:Describe*",
+				        "kinesisvideo:Get*",
+				        "kinesisvideo:List*",
+				        "kinesisvideo:Connect*"
             ],
             "Resource": "${awscc_kinesisvideo_signaling_channel.my_channel.arn}"
         }

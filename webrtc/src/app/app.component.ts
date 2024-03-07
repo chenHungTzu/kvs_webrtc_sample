@@ -1,8 +1,7 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, ViewChild } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { Role, SignalingClient } from 'amazon-kinesis-video-streams-webrtc';
 import { environment } from '../environments/environment';
-// import entire SDK
 import AWS from 'aws-sdk';
 
 
@@ -73,7 +72,7 @@ export class AppComponent {
 
     const iceServers: RTCIceServer[] = [{ urls: `stun:stun.kinesisvideo.${region}.amazonaws.com:443` }];
 
-    console.log('IceServerList', getIceServerConfigResponse.IceServerList);
+
     getIceServerConfigResponse.IceServerList?.forEach(iceServer =>
       iceServers.push({
         urls: iceServer.Uris as string[] | string,
@@ -115,19 +114,21 @@ export class AppComponent {
           }),
         );
 
+        console.warn('[viewer] send sdp offer')
         signalingClient.sendSdpOffer(peerConnection.localDescription as RTCSessionDescription);
 
     });
 
 
     signalingClient.on('sdpAnswer', async answer => {
-      console.log('viewer sdpAnswer', answer);
+      console.warn('[viewer] get sdp answer')
       await peerConnection.setRemoteDescription(answer);
 
     });
 
 
     signalingClient.on('iceCandidate', candidate => {
+      console.warn('[viewer] get iceCandidate')
       peerConnection.addIceCandidate(candidate);
     });
 
@@ -141,6 +142,7 @@ export class AppComponent {
 
     peerConnection.addEventListener('icecandidate', ({ candidate }) => {
       if (candidate) {
+        console.warn('[viewer] send iceCandidate')
         signalingClient.sendIceCandidate(candidate);
       } else {
         console.log('No more ICE candidates will be generated')
@@ -185,10 +187,10 @@ export class AppComponent {
       apiVersion: 'latest'
     });
 
-    // 取得信號通道的服務端點
-    // wss 的端點，主要是用於傳送 SDP / ICE 這些訊息
-    // https 的端點， 主要是透過服務去取得 ICE 候選
-    const endpoint = await kinesisVideoClient.getSignalingChannelEndpoint({
+    // 取得信號通道的服務端點。
+    // wss 的端點作為Signaling Server endpoint。
+    // https 的端點， 主要是透過服務去取得 ICE Server endpoint。
+    const endpoints = await kinesisVideoClient.getSignalingChannelEndpoint({
         ChannelARN: channelARN,
         SingleMasterChannelEndpointConfiguration: {
           Protocols: ['WSS', 'HTTPS'],
@@ -197,8 +199,8 @@ export class AppComponent {
       })
       .promise().then((data) => data);
 
-    const httpsEndpoint = endpoint.ResourceEndpointList?.find(x => x.Protocol === 'HTTPS')?.ResourceEndpoint;
-    const wssEndpoint = endpoint.ResourceEndpointList?.find(x => x.Protocol === 'WSS')?.ResourceEndpoint;
+    const httpsEndpoint = endpoints.ResourceEndpointList?.find(x => x.Protocol === 'HTTPS')?.ResourceEndpoint;
+    const wssEndpoint = endpoints.ResourceEndpointList?.find(x => x.Protocol === 'WSS')?.ResourceEndpoint;
 
     const kinesisVideoSignalingChannelsClient = new AWS.KinesisVideoSignalingChannels({
       region,
@@ -209,14 +211,14 @@ export class AppComponent {
       correctClockSkew: true,
     });
 
-    // 取得 ICE 候選 ，包含了 TURN server endpoint
+    // 取得 ICE Server ，包含了 TURN server endpoint
     const getIceServerConfigResponse = await kinesisVideoSignalingChannelsClient
       .getIceServerConfig({
         ChannelARN: channelARN,
       })
       .promise();
 
-    // 定義 AWS 公有的 STUN server endpoint
+    //  AWS 公有的 STUN server endpoint
     const iceServers: RTCIceServer[] = [{ urls: `stun:stun.kinesisvideo.${region}.amazonaws.com:443` }];
 
     getIceServerConfigResponse.IceServerList?.forEach(iceServer =>
@@ -233,7 +235,7 @@ export class AppComponent {
     const peerConnection = new RTCPeerConnection({ iceServers, iceTransportPolicy: 'all' });
 
 
-    // 開啟通道連接，準備用於傳送 SDP / ICE 候選訊息，並且取得/上傳本地的媒體資料
+    // 開啟通道連接，準備用於傳送 SDP / ICE 候選訊息
     const signalingClient = new SignalingClient({
       channelARN,
       channelEndpoint: wssEndpoint as string,
@@ -265,7 +267,7 @@ export class AppComponent {
 
 
     signalingClient.on('sdpOffer', async (offer, remoteClientId) => {
-
+      console.warn('[master] get sdp offer')
       remoteId = remoteClientId;
       await peerConnection.setRemoteDescription(offer);
 
@@ -278,12 +280,14 @@ export class AppComponent {
 
       // 接到發話端的 SDP offer 後，進行 SDP answer 的回應
       // 將 SDP answer 回應給 viewer 端
+      console.warn('[master] send sdp answer')
       signalingClient.sendSdpAnswer(peerConnection.localDescription as RTCSessionDescription, remoteId);
     });
 
     // 接收到發話端的 ICE 候選後，加入到 RTCPeerConnection進行連接
     signalingClient.on('iceCandidate', candidate => {
-      console.log('iceCandidate', candidate);
+      console.warn('[master] get iceCandidate')
+      console.log(candidate)
       peerConnection.addIceCandidate(candidate);
     });
 
@@ -298,6 +302,8 @@ export class AppComponent {
     // 本地端的 RTCPeerConnection 產生 ICE 候選後，透過 signalingClient 傳送給發話端
     peerConnection.addEventListener('icecandidate', ({ candidate }) => {
       if (candidate) {
+        console.warn('[master] send iceCandidate')
+        console.log(candidate)
         signalingClient.sendIceCandidate(candidate, remoteId);
       } else {
         console.log('No more ICE candidates will be generated')
