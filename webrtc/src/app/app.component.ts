@@ -188,8 +188,8 @@ export class AppComponent {
     });
 
     // 取得信號通道的服務端點。
-    // wss 的端點作為Signaling Server endpoint。
-    // https 的端點， 主要是透過服務去取得 ICE Server endpoint。
+    // wss 的端點作為Signaling Server。
+    // https 的端點， 主要是透過服務去取得 ICE Server。
     const endpoints = await kinesisVideoClient.getSignalingChannelEndpoint({
         ChannelARN: channelARN,
         SingleMasterChannelEndpointConfiguration: {
@@ -235,7 +235,7 @@ export class AppComponent {
     const peerConnection = new RTCPeerConnection({ iceServers, iceTransportPolicy: 'all' });
 
 
-    // 開啟通道連接，準備用於傳送 SDP / ICE 候選訊息
+    // 準備用於傳送 SDP / ICE 候選訊息
     const signalingClient = new SignalingClient({
       channelARN,
       channelEndpoint: wssEndpoint as string,
