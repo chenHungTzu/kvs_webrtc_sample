@@ -197,7 +197,7 @@ export class AppComponent {
           Role: Role.MASTER,
         },
       })
-      .promise().then((data) => data);
+      .promise();
 
     const httpsEndpoint = endpoints.ResourceEndpointList?.find(x => x.Protocol === 'HTTPS')?.ResourceEndpoint;
     const wssEndpoint = endpoints.ResourceEndpointList?.find(x => x.Protocol === 'WSS')?.ResourceEndpoint;
